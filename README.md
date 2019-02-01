@@ -41,6 +41,13 @@ arbitration. Alice can still call `goodsrcvd` and release the funds. At
 the same time, the arbiter can call one of two actions: `arbrefund`
 would send money back to Alice, or `arbenforce` would send money to Bob.
 
+Alice or Bob can call `cancel` action under the following conditions:
+
+* any time before the deposit is transferred, either party can cancel the deal;
+
+* Only Bob can cancel the deal after the tokens are deposited;
+
+
 
 
 ## Copyright and License
