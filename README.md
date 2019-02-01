@@ -7,7 +7,7 @@ Alice wants to buy pumpkins from Bob and she pays with FARMER token.
 
 They trust Chris to be the arbiter in case of a conflict.
 
-Alice or Bob create a deal in `escrowescrow`, by sending an action
+Anyone can create a deal in `escrowescrow`, by sending an action
 `newdeal` with the following attributes:
 
 * Text description of a deal
@@ -18,10 +18,11 @@ Alice or Bob create a deal in `escrowescrow`, by sending an action
 * Delivery term, in days
 
 A new deal is created. Its ID is composed from first 32 bits of the
-transaction ID.
+transaction ID. If the deal is created by Alice or Bob, it is considered
+automatically accepted by corresponding party. Alice must have a
+positive balance of specified tokens on her account.
 
-The other party needs to `accept` the deal within 3 days. If Alice creates
-the deal, Bob needs to accept it, and vice versa.
+Both parties need to `accept` the deal within 3 days.
 
 The buyer needs to transfer the whole amount to `escrowescrow` with deal
 ID in memo within 3 days after the deal is accepted. 
