@@ -29,12 +29,16 @@ ID in memo within 3 days after the deal is accepted.
 If the above actions haven't happened within their terms, the deal is
 automatically deleted from the contract.
 
-Bob delivers the pumpkins within the delivery term and sends `claim`
+Bob delivers the pumpkins within the delivery term and sends `delivered`
 transaction. In case the delivery hasn't happened within the term, the
 tokens are returned to Alice, and the deal is deleted from the contract.
 
 Alice needs to confirm the deal closure by calling `goodsrcvd` action
-within 3 days. This will trigger a transfer of tokens to Bob.
+within 3 days. This will trigger a transfer of tokens to Bob. Alice can
+also confirm if Bob didn't send the `delivered` action.
+
+If Bob needs more time, Alice can call `extend` action and extend the
+delivery term by specified number of days.
 
 If there's no confirmation within 3 days, the deal is open for
 arbitration. Alice can still call `goodsrcvd` and release the funds. At
