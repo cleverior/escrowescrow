@@ -55,7 +55,9 @@ Alice or Bob can call `cancel` action under the following conditions:
 
 
 
-## Copyright and License
+## Sponsors, Copyright and License
+
+This development is sponsored by EOS Geneva (https://eosgeneva.io/), BP accounut name: `switzerlanda`.
 
 Copyright 2018 cc32d9@gmail.com
 
