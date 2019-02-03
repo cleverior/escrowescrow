@@ -4,17 +4,19 @@
 #include <eosiolib/multi_index.hpp>
 #include <eosiolib/crypto.h>
 #include <eosiolib/time.hpp>
-#include <eosiolib/transaction.h>
+#include <eosiolib/transaction.hpp>
 
 using namespace eosio;
 
 using std::string;
+using std::to_string;
 
 CONTRACT escrowescrow : public eosio::contract {
  public:
-  escrowescrow( name self, name code, datastream<const char*> ds ): contract(self, code, ds):
+  escrowescrow( name self, name code, datastream<const char*> ds ):
+    contract(self, code, ds),
     _deals(self, self.value)
-    {}
+      {}
 
   const uint16_t BUYER_ACCEPTED_FLAG    = 1 << 0;
   const uint16_t SELLER_ACCEPTED_FLAG   = 1 << 1;
@@ -25,6 +27,7 @@ CONTRACT escrowescrow : public eosio::contract {
   const uint16_t BOTH_ACCEPTED_FLAG = BUYER_ACCEPTED_FLAG | SELLER_ACCEPTED_FLAG;
   
   const int WIPE_EXP_DEALS_TAX = 3; // delete up to so many expired deals in every action
+  const unsigned int WIPE_EXP_TX_DELAY = 10; // deferred transaction delay, seconds
   
   const int NEW_DEAL_EXPIRES = 3*3600*24;
   const int ACCEPTED_DEAL_EXPIRES = 3*3600*24;
@@ -38,7 +41,7 @@ CONTRACT escrowescrow : public eosio::contract {
                  name buyer, name seller, name arbiter, uint32_t days)
   {
     require_auth(creator);
-    eosio_assert(description.length > 0, "description cannot be empty");
+    eosio_assert(description.length() > 0, "description cannot be empty");
     eosio_assert(is_account(tkcontract), "tkcontract account does not exist");
     eosio_assert(quantity.is_valid(), "invalid quantity" );
     eosio_assert(quantity.amount > 0, "must specify a positive quantity" );
@@ -51,11 +54,11 @@ CONTRACT escrowescrow : public eosio::contract {
     eosio_assert(days > 0, "delivery term should be a positive number of days");
 
     // Validate the token contract. The buyer should have a non-zero balance of payment token
-    accounts token_accounts(tkcontract, buyer);
-    const auto token_name = quantity.symbol.name();
+    accounts token_accounts(tkcontract, buyer.value);
+    const auto token_name = quantity.symbol.raw();
     auto token_accounts_itr = token_accounts.find(token_name);
-    assert(token_accounts_itr != token_accounts.end(),
-           "Invalid token contract or the buyer has no funds");
+    eosio_assert(token_accounts_itr != token_accounts.end(),
+                 "Invalid token contract or the buyer has no funds");
 
     // deal ID is first 32 bits from transaction ID
     uint64_t id = 0;
@@ -71,7 +74,7 @@ CONTRACT escrowescrow : public eosio::contract {
     }
 
     auto idx = _deals.emplace(creator, [&]( auto& d ) {
-        d.id = deal_id;
+        d.id = id;
         d.created_by = creator;
         d.description = description;
         d.price.contract = tkcontract;
@@ -88,11 +91,11 @@ CONTRACT escrowescrow : public eosio::contract {
           d.flags |= SELLER_ACCEPTED_FLAG;
         }
       });
-    _notify("New deal created", *idx);
+    _notify(name("new"), "New deal created", *idx);
     
-    require_recipient(d.seller);
-    require_recipient(d.buyer);
-    _clean_expired_deals(WIPE_EXP_DEALS_TAX);
+    require_recipient(seller);
+    require_recipient(buyer);
+    _clean_expired_deals(id);
   }
 
   
@@ -112,15 +115,15 @@ CONTRACT escrowescrow : public eosio::contract {
       eosio_assert( (d.flags & SELLER_ACCEPTED_FLAG) == 0, "Seller has already accepted this deal");
       flags |= SELLER_ACCEPTED_FLAG;
     } else {
-      eosio_assert("Deal can only be accepted by either seller or buyer");
+      eosio_assert(false, "Deal can only be accepted by either seller or buyer");
     }
       
-    if( flags & BOTH_ACCEPTED_FLAG == BOTH_ACCEPTED_FLAG ) {
+    if( (flags & BOTH_ACCEPTED_FLAG) == BOTH_ACCEPTED_FLAG ) {
       _deals.modify( *dealitr, party, [&]( auto& item ) {
           item.flags = flags;
           item.expires = time_point_sec(now()) + ACCEPTED_DEAL_EXPIRES;
         });
-      _notify("Deal is fully accepted", d);
+      _notify(name("accepted"), "Deal is fully accepted", d);
       require_recipient(d.seller);
       require_recipient(d.buyer);
     }
@@ -130,7 +133,7 @@ CONTRACT escrowescrow : public eosio::contract {
         });
     }
 
-    _clean_expired_deals(WIPE_EXP_DEALS_TAX);
+    _clean_expired_deals(deal_id);
   }
 
 
@@ -146,24 +149,24 @@ CONTRACT escrowescrow : public eosio::contract {
       eosio_assert(dealitr != _deals.end(), "Cannot find deal ID");
       const deal& d = *dealitr;
 
-      eosio_assert(d.flags & DEAL_FUNDED_FLAG == 0, "The deal is already funded");
-      eosio_assert(d.flags & BOTH_ACCEPTED_FLAG == BOTH_ACCEPTED_FLAG,
-                   "The deal is not accepted yet by both parties")
+      eosio_assert((d.flags & DEAL_FUNDED_FLAG) == 0, "The deal is already funded");
+      eosio_assert((d.flags & BOTH_ACCEPTED_FLAG) == BOTH_ACCEPTED_FLAG,
+                   "The deal is not accepted yet by both parties");
       eosio_assert(from == d.buyer, "The deal can only funded by buyer");      
       const extended_asset payment(quantity, name{get_code()});
 
       eosio_assert(payment == d.price,
-                   string("Invalid amount or currency. Expected ") +
-                   d.price.quantity.to_string() + " via " + d.price.contract.to_string());
-      _deals.modify( *dealitr, party, [&]( auto& item ) {
+                   (string("Invalid amount or currency. Expected ") +
+                    d.price.quantity.to_string() + " via " + d.price.contract.to_string()).c_str());
+      _deals.modify( *dealitr, _self, [&]( auto& item ) {
           item.funded = time_point_sec(now());
           item.expires = item.funded + (item.days * 24 * 36000);
           item.flags |= DEAL_FUNDED_FLAG;
         });
       
-      _notify("Deal is funded", d);
+      _notify(name("funded"), "Deal is funded", d);
       require_recipient(d.seller);
-      _clean_expired_deals(WIPE_EXP_DEALS_TAX);
+      _clean_expired_deals(deal_id);
     }
   }
 
@@ -175,47 +178,114 @@ CONTRACT escrowescrow : public eosio::contract {
     eosio_assert(dealitr != _deals.end(), "Cannot find deal_id");
     const deal& d = *dealitr;
 
-    eosio_assert(d.flags & DEAL_FUNDED_FLAG, "The deal is not funded yet");
-    eosio_assert(d.flags & DEAL_DELIVERED_FLAG == 0, "The deal is already marked as delivered");
+    eosio_assert((d.flags & DEAL_FUNDED_FLAG), "The deal is not funded yet");
+    eosio_assert((d.flags & DEAL_DELIVERED_FLAG) == 0, "The deal is already marked as delivered");
     require_auth(d.seller);
 
-    _deals.modify( *dealitr, party, [&]( auto& item ) {
+    _deals.modify( *dealitr, _self, [&]( auto& item ) {
         item.expires = time_point_sec(now()) + DELIVERED_DEAL_EXPIRES;
         item.flags |= DEAL_DELIVERED_FLAG;
       });
 
-    _notify("Deal is marked as delivered", d);
+    _notify(name("delivered"), "Deal is marked as delivered", d);
     require_recipient(d.buyer);
+    _clean_expired_deals(deal_id);
   }
 
-  
+
+  // Goods Received may be made before "delivered", but the deal must be funded first
   ACTION goodsrcvd(uint64_t deal_id)
   {
+    auto dealitr = _deals.find(deal_id);
+    eosio_assert(dealitr != _deals.end(), "Cannot find deal_id");
+    const deal& d = *dealitr;
+
+    eosio_assert((d.flags & DEAL_FUNDED_FLAG), "The deal is not funded yet");
+    require_auth(d.buyer);
+
+    _send_payment(d.seller, d.price,
+                  string("Deal ") + to_string(d.id) + ": goods received, deal closed");
+    _notify(name("closed"), "Goods received, deal closed", d);    
+    _deals.erase(dealitr);
+    _clean_expired_deals(deal_id);
   }
 
 
-  ACTION extend(uint64_t deal_id, uint32_t days)
+  
+  ACTION extend(uint64_t deal_id, uint32_t moredays)
   {
+    auto dealitr = _deals.find(deal_id);
+    eosio_assert(dealitr != _deals.end(), "Cannot find deal_id");
+    const deal& d = *dealitr;
+
+    eosio_assert((d.flags & DEAL_FUNDED_FLAG), "The deal is not funded yet");
+    require_auth(d.buyer);
+
+    _deals.modify( *dealitr, _self, [&]( auto& item ) {
+        item.days += moredays;
+        item.expires = item.funded + (item.days * 24 * 36000);
+        });
+
+    _notify(name("extended"), "Deal extended by " + to_string(moredays) + " more days", d);
+    require_recipient(d.seller);
+    _clean_expired_deals(deal_id);
   }
+
 
 
   ACTION arbrefund(uint64_t deal_id)
   {
+    auto dealitr = _deals.find(deal_id);
+    eosio_assert(dealitr != _deals.end(), "Cannot find deal_id");
+    const deal& d = *dealitr;
+
+    eosio_assert((d.flags & DEAL_ARBITRATION_FLAG), "The deal is not open for arbitration");
+    require_auth(d.arbiter);
+    
+    _send_payment(d.buyer, d.price,
+                  string("Deal ") + to_string(d.id) + ": canceled by arbitration");
+    _notify(name("arbrefund"), "Deal canceled by arbitration, buyer got refunded", d);
+    require_recipient(d.seller);
+    _deals.erase(dealitr);
+    _clean_expired_deals(deal_id);
   }
   
 
+  
   ACTION arbenforce(uint64_t deal_id)
   {
+    auto dealitr = _deals.find(deal_id);
+    eosio_assert(dealitr != _deals.end(), "Cannot find deal_id");
+    const deal& d = *dealitr;
+
+    eosio_assert((d.flags & DEAL_ARBITRATION_FLAG), "The deal is not open for arbitration");
+    require_auth(d.arbiter);
+    
+    _send_payment(d.seller, d.price,
+                  string("Deal ") + to_string(d.id) + ": enforced by arbitration");
+    _notify(name("arbenforce"), "Deal enforced by arbitration, seller got paid", d);
+    require_recipient(d.buyer);
+    _deals.erase(dealitr);
+    _clean_expired_deals(deal_id);
   }
 
-  ACTION wipeexp()
+
+  // erase up to X expired deals
+  ACTION wipeexpired(uint16_t count)
   {
-    _clean_expired_deals(WIPE_EXP_DEALS_TAX * 3);
+    auto _now = time_point_sec(now());
+    auto dealidx = _deals.get_index<name("expires")>();
+    auto dealitr = dealidx.lower_bound(1); // 0 is for deals locked for arbitration
+    while( count-- > 0 && dealitr != dealidx.end() && dealitr->expires <= _now ) {
+      _deal_expired(*dealitr);
+      dealitr = dealidx.lower_bound(1);
+    }
   }
       
       
   // inline notifications
   struct deal_notification_abi {
+    name        deal_status;
     string      message;
     uint64_t    deal_id;
     name        created_by;
@@ -228,11 +298,11 @@ CONTRACT escrowescrow : public eosio::contract {
     uint32_t    days;    
   };
 
-  ACTION notify(string message, uint64_t deal_id, name created_by, string description,
-                name tkcontract, asset& quantity,
+  ACTION notify(name deal_status, string message, uint64_t deal_id, name created_by,
+                string description, name tkcontract, asset& quantity,
                 name buyer, name seller, name arbiter, uint32_t days)
   {
-    require_auth(permission_level(_self, name("notify")));
+    require_auth(permission_level(_self, name("active")));
   }
 
   
@@ -260,56 +330,67 @@ CONTRACT escrowescrow : public eosio::contract {
 
   deals _deals;
   
-  void _clean_expired_deals(int count)
+  void _clean_expired_deals(uint64_t senderid)
   {
     auto _now = time_point_sec(now());
     auto dealidx = _deals.get_index<name("expires")>();
     auto dealitr = dealidx.lower_bound(1); // 0 is for deals locked for arbitration
-    while( count-- > 0 && dealitr != dealidx.end() && dealitr->expires <= _now ) {
-      _deal_expired(*dealitr);
-      dealitr = dealidx.erase(dealitr);
+    if( dealitr != dealidx.end() && dealitr->expires <= _now ) {
+      // Send a deferred transaction that wipes up to WIPE_EXP_DEALS_TAX expired records
+      transaction tx;
+      tx.actions.emplace_back(
+                              permission_level{_self, name("active")},
+                              _self,
+                              name("wipeexpired"),
+                              std::make_tuple(WIPE_EXP_DEALS_TAX)
+                              );
+      tx.delay_sec = WIPE_EXP_TX_DELAY;
+      tx.send(senderid, _self);
     }
   }
 
 
   void _deal_expired(const deal& d)
   {
-    _notify(msg, d);
-    require_recipient(d.seller);
     if( d.flags & DEAL_DELIVERED_FLAG ) {
       _deals.modify( d, _self, [&]( auto& item ) {
           item.expires.utc_seconds = 0;
           item.flags |= DEAL_ARBITRATION_FLAG;
       });
-      _notify("Missing Goods Received. The deal is open for arbitration", d);
+      _notify(name("arbitration"),
+              "Did not receive Goods Received on time. The deal is open for arbitration", d);
       require_recipient(d.seller);
       require_recipient(d.buyer);
       require_recipient(d.arbiter);
     }
     else {
+      string msg = string("Deal ") + to_string(d.id) + " expired";
       if( d.flags & DEAL_FUNDED_FLAG ) {
         _send_payment(d.buyer, d.price, msg); // refund the buyer
+        _notify(name("refund"), string("Deal ") + to_string(d.id) + " refunded", d);
       }
       else {
         require_recipient(d.buyer);  // in case of a payback, the buyer is already notified
       }
-      _notify(string("Deal ") + to_string(d.id) + " expired", d);
       require_recipient(d.seller);
+      _notify(name("expired"), msg, d);
+      _deals.erase(d);
     }
   }
 
 
   
   // leave a trace in history
-  void _notify(const string message, const deal& d)
+  void _notify(name deal_status, const string message, const deal& d)
   {
     action {
-      permission_level{_self, name("notify")},
+      permission_level{_self, name("active")},
       _self,
       name("notify"),
-      expireddeal_abi {
+      deal_notification_abi {
+        .deal_status=deal_status,
         .message=message,
-        .deal_id=d.id, .description=description, .tkcontract=d.price.contract,
+        .deal_id=d.id, .description=d.description, .tkcontract=d.price.contract,
         .quantity=d.price.quantity,
         .buyer=d.buyer, .seller=d.seller, .arbiter=d.arbiter, .days=d.days }
     }.send();
@@ -320,7 +401,7 @@ CONTRACT escrowescrow : public eosio::contract {
   {
     action
       {
-        permission_level{_self, name("payout")},
+        permission_level{_self, name("active")},
         x.contract,
         name("transfer"),
         transfer  {
@@ -344,12 +425,12 @@ CONTRACT escrowescrow : public eosio::contract {
 
   struct account {
     asset    balance;    
-    uint64_t primary_key() const { return balance.symbol.name(); }
+    uint64_t primary_key() const { return balance.symbol.raw(); }
   };
 
-  typedef eosio::multi_index<N(accounts), account> accounts;
+  typedef eosio::multi_index<name("accounts"), account> accounts;
     
-}
+};
 
   
 extern "C" void apply(uint64_t receiver, uint64_t code, uint64_t action) {
@@ -361,7 +442,7 @@ extern "C" void apply(uint64_t receiver, uint64_t code, uint64_t action) {
     switch( action ) {
       EOSIO_DISPATCH_HELPER( escrowescrow,
                              (newdeal)(accept)(delivered)(goodsrcvd)
-                             (extend)(arbrefund)(arbenforce)(wipeexp));
+                             (extend)(arbrefund)(arbenforce)(wipeexpired));
     }
   }
 }
