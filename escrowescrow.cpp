@@ -107,6 +107,8 @@ CONTRACT escrowescrow : public eosio::contract {
     eosio_assert(dealitr != _deals.end(), "Cannot find deal_id");
     const deal& d = *dealitr;
     auto flags = d.flags;
+
+    eosio_assert(d.expires > time_point_sec(now()), "The deal is expired");
     
     if( party == d.buyer ) {
       eosio_assert( (d.flags & BUYER_ACCEPTED_FLAG) == 0, "Buyer has already accepted this deal");
@@ -156,6 +158,8 @@ CONTRACT escrowescrow : public eosio::contract {
       eosio_assert(dealitr != _deals.end(), (string("Cannot find deal ID: ") + to_string(deal_id)).c_str());
       const deal& d = *dealitr;
 
+      eosio_assert(d.expires > time_point_sec(now()), "The deal is expired");
+
       eosio_assert((d.flags & DEAL_FUNDED_FLAG) == 0, "The deal is already funded");
       eosio_assert((d.flags & BOTH_ACCEPTED_FLAG) == BOTH_ACCEPTED_FLAG,
                    "The deal is not accepted yet by both parties");
@@ -184,6 +188,8 @@ CONTRACT escrowescrow : public eosio::contract {
     eosio_assert(dealitr != _deals.end(), "Cannot find deal_id");
     const deal& d = *dealitr;
 
+    eosio_assert(d.expires > time_point_sec(now()), "The deal is expired");
+    
     if( (d.flags & DEAL_FUNDED_FLAG) == 0 ) {
       // not funded, so any of the parties can cancel the deal
       eosio_assert(has_auth(d.buyer) || has_auth(d.seller),
@@ -211,6 +217,8 @@ CONTRACT escrowescrow : public eosio::contract {
     eosio_assert(dealitr != _deals.end(), "Cannot find deal_id");
     const deal& d = *dealitr;
 
+    eosio_assert(d.expires > time_point_sec(now()), "The deal is expired");
+    
     eosio_assert((d.flags & DEAL_FUNDED_FLAG), "The deal is not funded yet");
     eosio_assert((d.flags & DEAL_DELIVERED_FLAG) == 0, "The deal is already marked as delivered");
     eosio_assert(has_auth(d.seller), "Only seller can mark a deal as delivered");
@@ -253,6 +261,8 @@ CONTRACT escrowescrow : public eosio::contract {
     auto dealitr = _deals.find(deal_id);
     eosio_assert(dealitr != _deals.end(), "Cannot find deal_id");
     const deal& d = *dealitr;
+
+    eosio_assert(d.expires > time_point_sec(now()), "The deal is expired");
 
     eosio_assert((d.flags & DEAL_FUNDED_FLAG), "The deal is not funded yet");
     eosio_assert(has_auth(d.buyer), "Only buyer can extend a deal");
