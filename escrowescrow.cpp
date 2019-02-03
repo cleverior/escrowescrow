@@ -6,6 +6,8 @@
 #include <eosiolib/time.hpp>
 #include <eosiolib/transaction.hpp>
 
+#include "escrowescrow_constants.hpp"
+
 using namespace eosio;
 
 using std::string;
@@ -26,16 +28,7 @@ CONTRACT escrowescrow : public eosio::contract {
 
   const uint16_t BOTH_ACCEPTED_FLAG = BUYER_ACCEPTED_FLAG | SELLER_ACCEPTED_FLAG;
   
-  const int WIPE_EXP_DEALS_TAX = 3; // delete up to so many expired deals in every action
-  const unsigned int WIPE_EXP_TX_DELAY = 10; // deferred transaction delay, seconds
-  
-  const int NEW_DEAL_EXPIRES = 3*3600*24;
-  const int ACCEPTED_DEAL_EXPIRES = 3*3600*24;
-  const int DELIVERED_DEAL_EXPIRES = 3*3600*24;
 
-
-
-    
   
   ACTION newdeal(name creator, string description, name tkcontract, asset& quantity,
                  name buyer, name seller, name arbiter, uint32_t days)
