@@ -171,6 +171,31 @@ CONTRACT escrowescrow : public eosio::contract {
   }
 
   
+  ACTION cancel(uint64_t deal_id)
+  {
+    auto dealitr = _deals.find(deal_id);
+    eosio_assert(dealitr != _deals.end(), "Cannot find deal_id");
+    const deal& d = *dealitr;
+
+    if( (d.flags & DEAL_FUNDED_FLAG) == 0 ) {
+      // not funded, so any of the parties can cancel the deal
+      eosio_assert(has_auth(d.buyer) || has_auth(d.seller),
+                   "Only seller or buyer can cancel the deal");
+    }
+    else {
+      // funded, so only seller can cancel the deal
+      require_auth(d.seller);
+      _send_payment(d.buyer, d.price,
+                    string("Deal ") + to_string(d.id) + ": canceled by seller");
+      _notify(name("refunded"), "Deal canceled by seller, buyer got refunded", d);
+    }
+    
+    _notify(name("canceled"), "The deal is canceled", d);    
+    _deals.erase(dealitr);
+    _clean_expired_deals(deal_id);
+  }
+
+  
   
   ACTION delivered(uint64_t deal_id)
   {
@@ -441,7 +466,7 @@ extern "C" void apply(uint64_t receiver, uint64_t code, uint64_t action) {
   else if( code == receiver ) {
     switch( action ) {
       EOSIO_DISPATCH_HELPER( escrowescrow,
-                             (newdeal)(accept)(delivered)(goodsrcvd)
+                             (newdeal)(accept)(cancel)(delivered)(goodsrcvd)
                              (extend)(arbrefund)(arbenforce)(wipeexpired));
     }
   }
