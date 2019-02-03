@@ -129,5 +129,13 @@ jcleos push action escrowescrow goodsrcvd '["2914838107"]' -p escrowbob111@activ
 # Alice signs Goods Received: Bob received money, deal erased
 jcleos --print-response push action escrowescrow  goodsrcvd '["2914838107"]' -p escrowalice1@active
 
+# Alice creates a deal: "flags": 1
+jcleos --print-response push action escrowescrow newdeal '["escrowalice1", "Alice buys 5 pumpkins from Bob and pays 0.1 VOID", "onessusblock", "0.1000 VOID", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p escrowalice1@active
 
+# Bob creates a deal: "flags": 2
+jcleos --print-response push action escrowescrow newdeal '["escrowbob111", "Alice buys 5 pumpkins from Bob and pays 0.1 VOID", "onessusblock", "0.1000 VOID", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p escrowbob111@active
+
+
+
+# There are no expired deals, so we get an error.
 jcleos --print-response push action escrowescrow wipeexpired '["5"]' -p escrowalice1@active
