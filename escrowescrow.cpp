@@ -55,10 +55,10 @@ CONTRACT escrowescrow : public eosio::contract {
 
     // Validate the token contract. The buyer should have a non-zero balance of payment token
     accounts token_accounts(tkcontract, buyer.value);
-    const auto token_name = quantity.symbol.raw();
+    const auto token_name = quantity.symbol.code().raw();
     auto token_accounts_itr = token_accounts.find(token_name);
     eosio_assert(token_accounts_itr != token_accounts.end(),
-                 "Invalid token contract or the buyer has no funds");
+                 "Invalid currency or the buyer has no funds");
 
     // deal ID is first 32 bits from transaction ID
     uint64_t id = 0;
@@ -415,8 +415,8 @@ CONTRACT escrowescrow : public eosio::contract {
       deal_notification_abi {
         .deal_status=deal_status,
         .message=message,
-        .deal_id=d.id, .description=d.description, .tkcontract=d.price.contract,
-        .quantity=d.price.quantity,
+        .deal_id=d.id, .created_by=d.created_by, .description=d.description,
+        .tkcontract=d.price.contract, .quantity=d.price.quantity,
         .buyer=d.buyer, .seller=d.seller, .arbiter=d.arbiter, .days=d.days }
     }.send();
   }
