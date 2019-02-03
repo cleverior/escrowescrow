@@ -118,8 +118,11 @@ jcleos push action escrowescrow delivered '["2937719527"]' -p escrowbob111@activ
 # Bob tries to cancel, error: The deal is already delivered, cannot cancel
 jcleos push action escrowescrow cancel '["2937719527"]' -p escrowbob111@active
 
+# Bob tries to sign Goods Received, error: Only buyer can sign-off Goods Received
+jcleos push action escrowescrow goodsrcvd '["2937719527"]' -p escrowbob111@active
+
+# Alice signs Goods Received: Bob received money, deal erased
+jcleos --print-response push action escrowescrow  goodsrcvd '["2937719527"]' -p escrowalice1@active
 
 
-
-
-
+TODO: expiration and arbitration
