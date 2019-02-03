@@ -191,7 +191,7 @@ CONTRACT escrowescrow : public eosio::contract {
     }
     else {
       // funded, so only seller can cancel the deal
-      require_auth(d.seller);
+      eosio_assert(has_auth(d.seller), "The deal is funded, so only seller can cancel it");
       _send_payment(d.buyer, d.price,
                     string("Deal ") + to_string(d.id) + ": canceled by seller");
       _notify(name("refunded"), "Deal canceled by seller, buyer got refunded", d);
@@ -212,7 +212,7 @@ CONTRACT escrowescrow : public eosio::contract {
 
     eosio_assert((d.flags & DEAL_FUNDED_FLAG), "The deal is not funded yet");
     eosio_assert((d.flags & DEAL_DELIVERED_FLAG) == 0, "The deal is already marked as delivered");
-    require_auth(d.seller);
+    eosio_assert(has_auth(d.seller), "Only seller can mark a deal as delivered");
 
     _deals.modify( *dealitr, _self, [&]( auto& item ) {
         item.expires = time_point_sec(now()) + DELIVERED_DEAL_EXPIRES;
@@ -233,7 +233,7 @@ CONTRACT escrowescrow : public eosio::contract {
     const deal& d = *dealitr;
 
     eosio_assert((d.flags & DEAL_FUNDED_FLAG), "The deal is not funded yet");
-    require_auth(d.buyer);
+    eosio_assert(has_auth(d.buyer), "Only buyer can sign-off Goods Received");
 
     _send_payment(d.seller, d.price,
                   string("Deal ") + to_string(d.id) + ": goods received, deal closed");
@@ -251,7 +251,7 @@ CONTRACT escrowescrow : public eosio::contract {
     const deal& d = *dealitr;
 
     eosio_assert((d.flags & DEAL_FUNDED_FLAG), "The deal is not funded yet");
-    require_auth(d.buyer);
+    eosio_assert(has_auth(d.buyer), "Only buyer can extend a deal");
 
     _deals.modify( *dealitr, _self, [&]( auto& item ) {
         item.days += moredays;
