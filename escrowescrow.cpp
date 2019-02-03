@@ -344,7 +344,7 @@ CONTRACT escrowescrow : public eosio::contract {
 
   ACTION notify(name deal_status, string message, uint64_t deal_id, name created_by,
                 string description, name tkcontract, asset& quantity,
-                name buyer, name seller, name arbiter, uint32_t days)
+                name buyer, name seller, name arbiter, uint32_t days, string delivery_memo)
   {
     require_auth(permission_level(_self, name("active")));
   }

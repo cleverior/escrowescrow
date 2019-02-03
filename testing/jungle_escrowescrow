@@ -26,6 +26,9 @@ jcleos system newaccount --buy-ram-kbytes=8 --stake-net='0.1000 EOS' --stake-cpu
 
 jcleos --print-response push action escrowescrow newdeal '["cc32dninexxx", "Alice buys 5 pumpkins from Bob and pays 0.1 VOID", "onessusblock", "0.1000 VOID", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p cc32dninexxx@active
 
+jcleos --print-response push action escrowescrow newdeal '["cc32dninexxx", "Alice buys 5 pumpkins from Bob and pays 1 JOKE", "jungle1token", "1.0000 JOKE", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p cc32dninexxx@active
+
+
 # Alice has no VOID, so we got: Invalid token contract or the buyer has no funds
 
 jcleos push action onessusblock transfer '["cc32dninexxx", "escrowalice1", "1.0000 VOID", "deposit"]' -p cc32dninexxx@active
@@ -34,95 +37,97 @@ jcleos push action eosio.token transfer '["cc32dninexxx", "escrowalice1", "1.000
 
 jcleos push action onessusblock transfer '["cc32dninexxx", "escrowbob111", "1.0000 VOID", "deposit"]' -p cc32dninexxx@active
 
+jcleos push action jungle1token transfer '["cc32dninexxx", "escrowalice1", "1.0000 JOKE", "deposit"]' -p cc32dninexxx@active
 
-# repeat newdeal. Created: "deal_id": 1287058529
+
+# repeat newdeal. Created: "deal_id": 2612529692
 
 # Chris cannot delete a deal
-jcleos push action escrowescrow cancel '["1287058529"]' -p escrowchris1@active
+jcleos push action escrowescrow cancel '["2612529692"]' -p escrowchris1@active
 
 # Creator cannot do it either
-jcleos push action escrowescrow cancel '["1287058529"]' -p cc32dninexxx@active
+jcleos push action escrowescrow cancel '["2612529692"]' -p cc32dninexxx@active
 
 # Seller can cancel it
-jcleos push action escrowescrow cancel '["1287058529"]' -p escrowbob111@active
+jcleos push action escrowescrow cancel '["2612529692"]' -p escrowbob111@active
 
 # repeat newdeal, cancel by buyer
-jcleos push action escrowescrow cancel '["870330779"]' -p escrowalice1@active
+jcleos push action escrowescrow cancel '["326358235"]' -p escrowalice1@active
 
-# new deal: 2198668121
+# new deal: 286652199
 
 # Chris cannot accept the deal
-jcleos push action escrowescrow accept '["escrowchris1", "2198668121"]' -p escrowchris1@active
+jcleos push action escrowescrow accept '["escrowchris1", "286652199"]' -p escrowchris1@active
 # Chris cannot accept for someone
-jcleos push action escrowescrow accept '["escrowalice1", "2198668121"]' -p escrowchris1@active
+jcleos push action escrowescrow accept '["escrowalice1", "286652199"]' -p escrowchris1@active
 
 # Alice confirms, results in "flags": 1
-jcleos push action escrowescrow accept '["escrowalice1", "2198668121"]' -p escrowalice1@active
+jcleos push action escrowescrow accept '["escrowalice1", "286652199"]' -p escrowalice1@active
 # Alice cannot confirm twice
-jcleos push action escrowescrow accept '["escrowalice1", "2198668121"]' -p escrowalice1@active
+jcleos push action escrowescrow accept '["escrowalice1", "286652199"]' -p escrowalice1@active
 
 # Bob confirms. results in "flags": 3
-jcleos push action escrowescrow accept '["escrowbob111", "2198668121"]' -p escrowbob111@active
+jcleos push action escrowescrow accept '["escrowbob111", "286652199"]' -p escrowbob111@active
 
 # Alice pays without memo: error
 jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "1.0000 VOID", ""]' -p escrowalice1@active
 # Alice pays with garbage memo: error
 jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "1.0000 VOID", "blah"]' -p escrowalice1@active
 # Alice pays with extra space in memo: error
-jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "1.0000 VOID", "2198668121 "]' -p escrowalice1@active
+jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "1.0000 VOID", "286652199 "]' -p escrowalice1@active
 # Alice pays with correct memo, wrong amount: error
-jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "1.0000 VOID", "2198668121"]' -p escrowalice1@active
+jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "1.0000 VOID", "286652199"]' -p escrowalice1@active
 # Alice pays incorrect currency: error comparison of assets with different symbols is not allowed
-jcleos push action eosio.token transfer '["escrowalice1", "escrowescrow", "0.1000 JUNGLE", "2198668121"]' -p escrowalice1@active
+jcleos push action eosio.token transfer '["escrowalice1", "escrowescrow", "0.1000 JUNGLE", "286652199"]' -p escrowalice1@active
 #Alice pays to wrong deal id: error, Cannot find deal ID: 3198668121
 jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "0.1000 VOID", "3198668121"]' -p escrowalice1@active
 
 # Bob tries to transfer: error, The deal can only funded by buyer
-jcleos push action onessusblock transfer '["escrowbob111", "escrowescrow", "0.1000 VOID", "2198668121"]' -p escrowbob111@active
+jcleos push action onessusblock transfer '["escrowbob111", "escrowescrow", "0.1000 VOID", "286652199"]' -p escrowbob111@active
 
 # Correct payment: "flags": 7
-jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "0.1000 VOID", "2198668121"]' -p escrowalice1@active
+jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "0.1000 VOID", "286652199"]' -p escrowalice1@active
 
 # Alice tries to cancel, error: The deal is funded, so only seller can cancel it
-jcleos push action escrowescrow cancel '["2198668121"]' -p escrowalice1@active
+jcleos push action escrowescrow cancel '["286652199"]' -p escrowalice1@active
 
 # Bob cancels the deal, funds return to Alice
-jcleos --print-response push action escrowescrow cancel '["2198668121"]' -p escrowbob111@active
+jcleos --print-response push action escrowescrow cancel '["286652199"]' -p escrowbob111@active
 
-# new deal: 1372340124
+# new deal: 2041396278
 # Alice pays without the deal being accepted, error: The deal is not accepted yet by both parties
-jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "0.1000 VOID", "1372340124"]' -p escrowalice1@active
+jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "0.1000 VOID", "2041396278"]' -p escrowalice1@active
 # Alice accepts
-jcleos push action escrowescrow accept '["escrowalice1", "1372340124"]' -p escrowalice1@active
+jcleos push action escrowescrow accept '["escrowalice1", "2041396278"]' -p escrowalice1@active
 # Alice pays: error, The deal is not accepted yet by both parties
-jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "0.1000 VOID", "1372340124"]' -p escrowalice1@active
+jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "0.1000 VOID", "2041396278"]' -p escrowalice1@active
 # Alice cancels
-jcleos push action escrowescrow cancel '["1372340124"]' -p escrowalice1@active
+jcleos push action escrowescrow cancel '["2041396278"]' -p escrowalice1@active
 
-# new deal: 2937719527
+# new deal: 2914838107
 
 # Bob accepts, "flags": 2
-jcleos push action escrowescrow accept '["escrowbob111", "2937719527"]' -p escrowbob111@active
+jcleos push action escrowescrow accept '["escrowbob111", "2914838107"]' -p escrowbob111@active
 # Alice pays: error, The deal is not accepted yet by both parties
-jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "0.1000 VOID", "2937719527"]' -p escrowalice1@active
+jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "0.1000 VOID", "2914838107"]' -p escrowalice1@active
 # Alice accepts:
-jcleos push action escrowescrow accept '["escrowalice1", "2937719527"]' -p escrowalice1@active
+jcleos push action escrowescrow accept '["escrowalice1", "2914838107"]' -p escrowalice1@active
 # Alice pays, "flags": 7
-jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "0.1000 VOID", "2937719527"]' -p escrowalice1@active
+jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "0.1000 VOID", "2914838107"]' -p escrowalice1@active
 
 # Alice tries to call "delivered", error: Only seller can mark a deal as delivered
-jcleos push action escrowescrow delivered '["2937719527"]' -p escrowalice1@active
+jcleos push action escrowescrow delivered '["2914838107", "hello"]' -p escrowalice1@active
 
 # Bob indicates the delivery, "flags": 15
-jcleos push action escrowescrow delivered '["2937719527"]' -p escrowbob111@active
+jcleos push action escrowescrow delivered '["2914838107", "Pumpkins delivered, expedite number 34r8934r243"]' -p escrowbob111@active
 # Bob tries to cancel, error: The deal is already delivered, cannot cancel
-jcleos push action escrowescrow cancel '["2937719527"]' -p escrowbob111@active
+jcleos push action escrowescrow cancel '["2914838107"]' -p escrowbob111@active
 
 # Bob tries to sign Goods Received, error: Only buyer can sign-off Goods Received
-jcleos push action escrowescrow goodsrcvd '["2937719527"]' -p escrowbob111@active
+jcleos push action escrowescrow goodsrcvd '["2914838107"]' -p escrowbob111@active
 
 # Alice signs Goods Received: Bob received money, deal erased
-jcleos --print-response push action escrowescrow  goodsrcvd '["2937719527"]' -p escrowalice1@active
+jcleos --print-response push action escrowescrow  goodsrcvd '["2914838107"]' -p escrowalice1@active
 
 
-TODO: expiration and arbitration
+jcleos --print-response push action escrowescrow wipeexpired '["5"]' -p escrowalice1@active
