@@ -322,6 +322,8 @@ CONTRACT escrowescrow : public eosio::contract {
     auto _now = time_point_sec(now());
     auto dealidx = _deals.get_index<name("expires")>();
     auto dealitr = dealidx.lower_bound(1); // 0 is for deals locked for arbitration
+    eosio_assert(dealitr != dealidx.end() && dealitr->expires <= _now,
+                 "There are no expired transactions");
     while( count-- > 0 && dealitr != dealidx.end() && dealitr->expires <= _now ) {
       _deal_expired(*dealitr);
       dealitr = dealidx.lower_bound(1);
