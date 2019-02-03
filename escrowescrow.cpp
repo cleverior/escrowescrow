@@ -143,10 +143,17 @@ CONTRACT escrowescrow : public eosio::contract {
   {
     if(to == _self) {
       eosio_assert(memo.length() > 0, "Memo must contain a valid deal ID");
+
+      uint64_t deal_id = 0;
+      for( int i = 0; i < memo.length(); i++ ) {
+        char c = memo[i];
+        eosio_assert('0' <= c && c <= '9', "Invalid character in symbol name. Expected only digits");
+        deal_id *= 10;
+        deal_id += (c - '0');
+      }
       
-      int deal_id = std::stoi(memo, nullptr, 10);
       auto dealitr = _deals.find(deal_id);
-      eosio_assert(dealitr != _deals.end(), "Cannot find deal ID");
+      eosio_assert(dealitr != _deals.end(), (string("Cannot find deal ID: ") + to_string(deal_id)).c_str());
       const deal& d = *dealitr;
 
       eosio_assert((d.flags & DEAL_FUNDED_FLAG) == 0, "The deal is already funded");
