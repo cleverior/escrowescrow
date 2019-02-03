@@ -86,8 +86,9 @@ CONTRACT escrowescrow : public eosio::contract {
       });
     _notify(name("new"), "New deal created", *idx);
     
-    require_recipient(seller);
     require_recipient(buyer);
+    require_recipient(seller);
+    require_recipient(arbiter);
     _clean_expired_deals(id);
   }
 
@@ -204,7 +205,7 @@ CONTRACT escrowescrow : public eosio::contract {
 
   
   
-  ACTION delivered(uint64_t deal_id)
+  ACTION delivered(uint64_t deal_id, string memo)
   {
     auto dealitr = _deals.find(deal_id);
     eosio_assert(dealitr != _deals.end(), "Cannot find deal_id");
@@ -216,9 +217,10 @@ CONTRACT escrowescrow : public eosio::contract {
     eosio_assert((d.flags & DEAL_DELIVERED_FLAG) == 0, "The deal is already marked as delivered");
     eosio_assert(has_auth(d.seller), "Only seller can mark a deal as delivered");
 
-    _deals.modify( *dealitr, _self, [&]( auto& item ) {
+    _deals.modify( *dealitr, d.seller, [&]( auto& item ) {
         item.expires = time_point_sec(now()) + DELIVERED_DEAL_EXPIRES;
         item.flags |= DEAL_DELIVERED_FLAG;
+        item.delivery_memo = memo;
       });
 
     _notify(name("delivered"), "Deal is marked as delivered", d);
@@ -336,7 +338,8 @@ CONTRACT escrowescrow : public eosio::contract {
     name        buyer;
     name        seller;
     name        arbiter;
-    uint32_t    days;    
+    uint32_t    days;
+    string      delivery_memo;
   };
 
   ACTION notify(name deal_status, string message, uint64_t deal_id, name created_by,
@@ -359,8 +362,9 @@ CONTRACT escrowescrow : public eosio::contract {
     name           arbiter;
     uint32_t       days;
     time_point_sec funded;
-    time_point_sec expires;
+    time_point_sec expires;    
     uint16_t       flags;
+    string         delivery_memo;
     auto primary_key()const { return id; }
     uint64_t get_expires()const { return expires.utc_seconds; }
   };
@@ -433,7 +437,8 @@ CONTRACT escrowescrow : public eosio::contract {
         .message=message,
         .deal_id=d.id, .created_by=d.created_by, .description=d.description,
         .tkcontract=d.price.contract, .quantity=d.price.quantity,
-        .buyer=d.buyer, .seller=d.seller, .arbiter=d.arbiter, .days=d.days }
+        .buyer=d.buyer, .seller=d.seller, .arbiter=d.arbiter, .days=d.days,
+        .delivery_memo=d.delivery_memo }
     }.send();
   }
   
