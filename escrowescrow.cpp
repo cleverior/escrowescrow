@@ -57,7 +57,7 @@ CONTRACT escrowescrow : public eosio::contract {
     accounts token_accounts(tkcontract, buyer.value);
     const auto token_name = quantity.symbol.code().raw();
     auto token_accounts_itr = token_accounts.find(token_name);
-    eosio_assert(token_accounts_itr != token_accounts.end(),
+    eosio_assert(token_accounts_itr != token_accounts.end() && token_accounts_itr->balance.amount > 0,
                  "Invalid currency or the buyer has no funds");
 
     // deal ID is first 32 bits from transaction ID
