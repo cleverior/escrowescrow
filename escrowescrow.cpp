@@ -238,8 +238,11 @@ CONTRACT escrowescrow : public eosio::contract {
 
     _send_payment(d.seller, d.price,
                   string("Deal ") + to_string(d.id) + ": goods received, deal closed");
-    _notify(name("closed"), "Goods received, deal closed", d);    
-    _deals.erase(dealitr);
+    _notify(name("closed"), "Goods received, deal closed", d);
+    if( d.flags & DEAL_ARBITRATION_FLAG ) {
+      require_recipient(d.arbiter);
+    }
+    _deals.erase(dealitr);    
     _clean_expired_deals(deal_id);
   }
 
