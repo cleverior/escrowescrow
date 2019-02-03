@@ -190,6 +190,7 @@ CONTRACT escrowescrow : public eosio::contract {
                    "Only seller or buyer can cancel the deal");
     }
     else {
+      eosio_assert((d.flags & DEAL_DELIVERED_FLAG) == 0, "The deal is already delivered, cannot cancel");
       // funded, so only seller can cancel the deal
       eosio_assert(has_auth(d.seller), "The deal is funded, so only seller can cancel it");
       _send_payment(d.buyer, d.price,
