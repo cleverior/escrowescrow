@@ -24,7 +24,16 @@ jcleos system newaccount --buy-ram-kbytes=8 --stake-net='0.1000 EOS' --stake-cpu
 
 
 
+# Arbiter is not registered, error: Cannot find the arbiter
 jcleos --print-response push action escrowescrow newdeal '["cc32dninexxx", "Alice buys 5 pumpkins from Bob and pays 0.1 VOID", "onessusblock", "0.1000 VOID", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p cc32dninexxx@active
+
+jcleos push action escrowescrow setarbiter '["escrowchris1", "Chris", "chris@domain.com", "Blah blah", "https://www.domain.com", "+1347824947932141", "US"]"' -p escrowchris1@active
+
+jcleos push action escrowescrow setarbiter '["escrowchris1", "Chris", "chris@domain.com", "some description", "https://www.domain.io", "+44938209482532323", "SG"]"' -p escrowchris1@active
+
+# repeat newdeal
+
+jcleos push action escrowescrow delarbiter '["escrowchris1"]'  -p escrowchris1@active
 
 jcleos --print-response push action escrowescrow newdeal '["cc32dninexxx", "Alice buys 5 pumpkins from Bob and pays 1 JOKE", "jungle1token", "1.0000 JOKE", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p cc32dninexxx@active
 

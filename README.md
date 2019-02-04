@@ -1,11 +1,20 @@
 # Universal EOS escrow contract
 
-This is an escrow service that anyone in EOS network can use. The
-workflow is as follows:
+This is an escrow service that anyone in EOS network can use. It is
+accepting deals in any valid tokens in EOS network, and providing easy
+means for integrating it into e-commerce solutions.
+
+The workflow is as follows:
 
 Alice wants to buy pumpkins from Bob and she pays with FARMER token.
 
 They trust Chris to be the arbiter in case of a conflict.
+
+Chris registers himself as an arbiter with `setarbiter` transaction,
+providing his email address, name, and optionally description, website
+URL and phone number. Optionaly Chris can indicate a 2-letter country
+code if he wants to operate in specific country only. If Chris needs to
+modify some fields, he can send `setarbiter` again.
 
 Anyone can create a deal in `escrowescrow`, by sending an action
 `newdeal` with the following attributes:
@@ -52,6 +61,10 @@ Alice or Bob can call `cancel` action under the following conditions:
 
 * Only Bob can cancel the deal after the tokens are deposited;
 
+
+If Chris is no longer willing to be an arbiter, he sends a `delarbiter`
+transaction. If there are any ongoing deals, Chris will be removed from
+the list of arbiters as soon as all those deals close.
 
 
 

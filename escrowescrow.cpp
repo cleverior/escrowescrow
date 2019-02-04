@@ -29,6 +29,54 @@ CONTRACT escrowescrow : public eosio::contract {
   const uint16_t BOTH_ACCEPTED_FLAG = BUYER_ACCEPTED_FLAG | SELLER_ACCEPTED_FLAG;
   
 
+  ACTION setarbiter(name account, string contact_name, string email, string description,
+                    string website, string phone, string iso_country)
+  {
+    require_auth(account);
+    eosio_assert(contact_name.length() > 0, "Contact name cannot be empty");
+    eosio_assert(email.length() > 0, "Email cannot be empty");
+    if( iso_country.length() > 0 ) {
+      eosio_assert(iso_country.length() == 2, "ISO country code must be 2 letters");
+      for( int i = 0; i < iso_country.length(); i++ ) {
+        char c = iso_country[i];
+        eosio_assert('A' <= c && c <= 'Z', "Invalid character in ISO country code");
+      }
+    }
+
+    auto setter = [&]( auto& item ) {
+      item.account = account;
+      item.contact_name = contact_name;
+      item.email = email;
+      item.description = description;
+      item.website = website;
+      item.phone = phone;
+      item.iso_country = iso_country;
+      item.is_active = 1;
+    };
+          
+    arbiters _arbiters(_self, _self.value);
+    auto arbitr = _arbiters.find(account.value);
+    if( arbitr == _arbiters.end() ) {
+      _arbiters.emplace(account, setter);
+    }
+    else {
+      _arbiters.modify(*arbitr, account, setter);
+    }
+  }
+
+  
+  ACTION delarbiter(name account)
+  {
+    require_auth(account);
+    arbiters _arbiters(_self, _self.value);
+    auto arbitr = _arbiters.find(account.value);
+    eosio_assert(arbitr != _arbiters.end(), "Cannot find the arbiter");
+    eosio_assert(arbitr->is_active, "This arbiter is already marked for deletion");
+    _arbiters.modify(*arbitr, account, [&]( auto& item ) {
+        item.is_active = 0;
+      });
+  }
+
   
   ACTION newdeal(name creator, string description, name tkcontract, asset& quantity,
                  name buyer, name seller, name arbiter, uint32_t days)
@@ -53,6 +101,11 @@ CONTRACT escrowescrow : public eosio::contract {
     eosio_assert(token_accounts_itr != token_accounts.end() && token_accounts_itr->balance.amount > 0,
                  "Invalid currency or the buyer has no funds");
 
+    // Check that arbiter is active
+    arbiters _arbiters(_self, _self.value);
+    auto arb = _arbiters.get(arbiter.value, "Cannot find the arbiter");
+    eosio_assert(arb.is_active, "This arbiter marked as inactive");
+    
     // deal ID is first 32 bits from transaction ID
     uint64_t id = 0;
     auto size = transaction_size();
@@ -282,6 +335,12 @@ CONTRACT escrowescrow : public eosio::contract {
 
     eosio_assert((d.flags & DEAL_ARBITRATION_FLAG), "The deal is not open for arbitration");
     require_auth(d.arbiter);
+
+    arbiters _arbiters(_self, _self.value);
+    auto arb = _arbiters.get(d.arbiter.value, "Cannot find the arbiter");
+    _arbiters.modify(arb, _self, [&]( auto& item ) {
+        item.processed_deals++;
+      });
     
     _send_payment(d.buyer, d.price,
                   string("Deal ") + to_string(d.id) + ": canceled by arbitration");
@@ -301,6 +360,12 @@ CONTRACT escrowescrow : public eosio::contract {
 
     eosio_assert((d.flags & DEAL_ARBITRATION_FLAG), "The deal is not open for arbitration");
     require_auth(d.arbiter);
+
+    arbiters _arbiters(_self, _self.value);
+    auto arb = _arbiters.get(d.arbiter.value, "Cannot find the arbiter");
+    _arbiters.modify(arb, _self, [&]( auto& item ) {
+        item.processed_deals++;
+      });
     
     _send_payment(d.seller, d.price,
                   string("Deal ") + to_string(d.id) + ": enforced by arbitration");
@@ -311,20 +376,49 @@ CONTRACT escrowescrow : public eosio::contract {
   }
 
 
-  // erase up to X expired deals
+  // erase up to X expired deals and one arbiter
   ACTION wipeexpired(uint16_t count)
   {
+    bool done_something = false;
     auto _now = time_point_sec(now());
     auto dealidx = _deals.get_index<name("expires")>();
     auto dealitr = dealidx.lower_bound(1); // 0 is for deals locked for arbitration
-    eosio_assert(dealitr != dealidx.end() && dealitr->expires <= _now,
-                 "There are no expired transactions");
     while( count-- > 0 && dealitr != dealidx.end() && dealitr->expires <= _now ) {
       _deal_expired(*dealitr);
       dealitr = dealidx.lower_bound(1);
+      done_something = true;
     }
+
+    arbiters _arbiters(_self, _self.value);
+    auto arbidx = _arbiters.get_index<name("active")>();
+    auto arbitr = arbidx.lower_bound(0);
+    bool deleted = false;
+    while( !deleted && arbitr != arbidx.end() && arbitr->is_active == 0 ) {
+      name arbiter = arbitr->account;
+      auto adidx = _deals.get_index<name("arbiters")>();
+      auto aditr = adidx.lower_bound(arbiter.value);
+      if( aditr == adidx.end() || aditr->arbiter != arbiter ) {
+        // no open deals for this arbiter. deleting.
+        arbidx.erase(arbitr);
+        deleted = true;
+        // leave trace
+        action(
+               permission_level{_self, name("active")},
+               _self, 
+               name("arbdeleted"), 
+               std::make_tuple(arbiter)
+               ).send();        
+        done_something = true;
+      }
+      else {
+        arbitr++;
+      }
+    }      
+
+    eosio_assert(done_something, "There are no expired transactions or inactive arbiters");
   }
-      
+
+  
       
   // inline notifications
   struct deal_notification_abi {
@@ -346,9 +440,14 @@ CONTRACT escrowescrow : public eosio::contract {
                 string description, name tkcontract, asset& quantity,
                 name buyer, name seller, name arbiter, uint32_t days, string delivery_memo)
   {
-    require_auth(permission_level(_self, name("active")));
+    require_auth(_self);
   }
 
+
+  ACTION arbdeleted(name arbiter) {
+    require_auth(_self);
+  }
+  
   
  private:
   
@@ -367,14 +466,37 @@ CONTRACT escrowescrow : public eosio::contract {
     string         delivery_memo;
     auto primary_key()const { return id; }
     uint64_t get_expires()const { return expires.utc_seconds; }
+    uint64_t get_arbiter()const { return arbiter.value; }
   };
 
   typedef eosio::multi_index<
     name("deals"), deal,
-    indexed_by<name("expires"), const_mem_fun<deal, uint64_t, &deal::get_expires>>> deals;
+    indexed_by<name("expires"), const_mem_fun<deal, uint64_t, &deal::get_expires>>,
+    indexed_by<name("arbiters"), const_mem_fun<deal, uint64_t, &deal::get_arbiter>>> deals;
 
   deals _deals;
-  
+
+
+  struct [[eosio::table("arbiters")]] arbiter {
+    name           account;
+    string         contact_name;
+    string         email;
+    string         description;
+    string         website;
+    string         phone;
+    string         iso_country;
+    uint32_t       processed_deals = 0;
+    uint8_t        is_active;
+    
+    auto primary_key()const { return account.value; }
+    uint64_t get_is_active()const { return is_active; }
+  };
+
+  typedef eosio::multi_index<
+    name("arbiters"), arbiter,
+    indexed_by<name("active"), const_mem_fun<arbiter, uint64_t, &arbiter::get_is_active>>> arbiters;
+
+      
   void _clean_expired_deals(uint64_t senderid)
   {
     auto _now = time_point_sec(now());
@@ -487,8 +609,9 @@ extern "C" void apply(uint64_t receiver, uint64_t code, uint64_t action) {
   else if( code == receiver ) {
     switch( action ) {
       EOSIO_DISPATCH_HELPER( escrowescrow,
+                             (setarbiter)(delarbiter)
                              (newdeal)(accept)(cancel)(delivered)(goodsrcvd)
-                             (extend)(arbrefund)(arbenforce)(wipeexpired));
+                             (extend)(arbrefund)(arbenforce)(wipeexpired)(notify)(arbdeleted));
     }
   }
 }
