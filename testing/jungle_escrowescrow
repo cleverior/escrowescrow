@@ -148,3 +148,95 @@ jcleos --print-response push action escrowescrow newdeal '["escrowbob111", "Alic
 
 # There are no expired deals, so we get an error.
 jcleos --print-response push action escrowescrow wipeexpired '["5"]' -p escrowalice1@active
+
+
+
+####  Expiring and arbitration ####
+
+Modifying the timeouts:
+
+const int NEW_DEAL_EXPIRES = 120;
+const int ACCEPTED_DEAL_EXPIRES = 120;
+const int DELIVERED_DEAL_EXPIRES = 120;
+const int DAY_SEC = 10;
+
+jcleos push action escrowescrow setarbiter '["escrowchris1", "Chris", "chris@domain.com", "Blah blah", "https://www.domain.com", "+1347824947932141", "US"]"' -p escrowchris1@active
+
+
+# newdeal, wait for 2 minutes, then newdeal again.
+
+vi /tmp/x
+jcleos push action escrowescrow newdeal '["escrowbob111", "Alice buys 5 pumpkins from Bob and pays 0.1 VOID", "onessusblock", "0.1000 VOID", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p escrowbob111@active
+sleep 130
+jcleos push action escrowescrow newdeal '["escrowbob111", "Alice buys 5 pumpkins from Bob and pays 0.1 VOID", "onessusblock", "0.1000 VOID", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p escrowbob111@active
+
+.  /tmp/x
+# Result: only one deal remaining
+
+
+
+# newdeal, accept, wait 2 minutes, newdeal again
+vi /tmp/x
+jcleos push action escrowescrow accept '["escrowalice1", "'$DEAL'"]' -p escrowalice1@active
+sleep 130
+jcleos push action escrowescrow newdeal '["escrowbob111", "test 3", "onessusblock", "0.1000 VOID", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p escrowbob111@active
+
+
+
+jcleos push action escrowescrow newdeal '["escrowbob111", "Alice buys 5 pumpkins from Bob and pays 0.1 VOID", "onessusblock", "0.1000 VOID", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p escrowbob111@active
+DEAL=3226311074
+. /tmp/x
+
+# Result: the expired accepted deal got erased
+
+
+
+# newdeal, accept, pay, wait for expiration. the payment should be refunded.
+vi /tmp/x
+jcleos push action escrowescrow accept '["escrowalice1", "'$DEAL'"]' -p escrowalice1@active
+jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "0.1000 VOID", "'$DEAL'"]' -p escrowalice1@active
+sleep 60
+jcleos push action escrowescrow newdeal '["escrowbob111", "test 5", "onessusblock", "0.1000 VOID", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p escrowbob111@active
+
+
+jcleos push action escrowescrow newdeal '["escrowbob111", "Alice buys 5 pumpkins from Bob and pays 0.1 VOID", "onessusblock", "0.1000 VOID", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p escrowbob111@active
+DEAL=3226311074
+. /tmp/x
+
+
+# arbitration test: accept, pay, delivered
+vi /tmp/x
+jcleos push action escrowescrow accept '["escrowalice1", "'$DEAL'"]' -p escrowalice1@active
+sleep 1
+jcleos push action onessusblock transfer '["escrowalice1", "escrowescrow", "0.1000 VOID", "'$DEAL'"]' -p escrowalice1@active
+sleep 1
+jcleos push action escrowescrow delivered '["'$DEAL'", "Pumpkins delivered, expedite number 34r8934r243"]' -p escrowbob111@active
+sleep 130
+jcleos push action escrowescrow newdeal '["escrowbob111", "test 5", "onessusblock", "0.1000 VOID", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p escrowbob111@active
+
+jcleos push action escrowescrow newdeal '["escrowbob111", "Alice buys 5 pumpkins from Bob and pays 0.1 VOID", "onessusblock", "0.1000 VOID", "escrowalice1", "escrowbob111", "escrowchris1", 5]"' -p escrowbob111@active
+DEAL=3226311074
+. /tmp/x
+
+
+# Alice and Bob try to cancel, getting error: The deal is in arbitration
+jcleos push action escrowescrow cancel '["1983549944"]' -p escrowbob111@active
+jcleos push action escrowescrow cancel '["1983549944"]' -p escrowalice1@active
+
+# Alice and Bob try to arbiter, error: missing authority of escrowchris1
+jcleos push action escrowescrow arbrefund '["1983549944"]' -p escrowalice1@active
+jcleos push action escrowescrow arbenforce '["1983549944"]' -p escrowalice1@active
+jcleos push action escrowescrow arbrefund '["1983549944"]' -p escrowbob111@active
+jcleos push action escrowescrow arbenforce '["1983549944"]' -p escrowbob111@active
+
+# Arbiter decides to refund
+jcleos push action escrowescrow arbrefund '["1983549944"]' -p escrowchris1@active
+
+# repeat the above, then enforce
+jcleos push action escrowescrow arbenforce '["3608340859"]' -p escrowchris1@active
+
+
+
+
+
+

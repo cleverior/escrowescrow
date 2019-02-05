@@ -2,7 +2,7 @@ CONTRACT=escrowescrow
 
 all: $(CONTRACT).wasm $(CONTRACT).abi
 
-%.wasm: %.cpp
+%.wasm: %.cpp escrowescrow_constants.hpp
 	eosio-cpp -o $@ $<
 
 %.abi: %.cpp

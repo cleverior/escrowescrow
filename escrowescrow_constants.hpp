@@ -5,3 +5,4 @@ const int NEW_DEAL_EXPIRES = 3*3600*24;
 const int ACCEPTED_DEAL_EXPIRES = 3*3600*24;
 const int DELIVERED_DEAL_EXPIRES = 3*3600*24;
 
+const int DAY_SEC = 24*3600;

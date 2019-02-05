@@ -218,7 +218,7 @@ CONTRACT escrowescrow : public eosio::contract {
                     d.price.quantity.to_string() + " via " + d.price.contract.to_string()).c_str());
       _deals.modify( *dealitr, _self, [&]( auto& item ) {
           item.funded = time_point_sec(now());
-          item.expires = item.funded + (item.days * 24 * 36000);
+          item.expires = item.funded + (item.days * DAY_SEC);
           item.flags |= DEAL_FUNDED_FLAG;
         });
       
@@ -235,6 +235,7 @@ CONTRACT escrowescrow : public eosio::contract {
     eosio_assert(dealitr != _deals.end(), "Cannot find deal_id");
     const deal& d = *dealitr;
 
+    eosio_assert((d.flags & DEAL_ARBITRATION_FLAG) == 0, "The deal is in arbitration");
     eosio_assert(d.expires > time_point_sec(now()), "The deal is expired");
     
     if( (d.flags & DEAL_FUNDED_FLAG) == 0 ) {
@@ -317,7 +318,7 @@ CONTRACT escrowescrow : public eosio::contract {
 
     _deals.modify( *dealitr, _self, [&]( auto& item ) {
         item.days += moredays;
-        item.expires = item.funded + (item.days * 24 * 36000);
+        item.expires = item.funded + (item.days * DAY_SEC);
         });
 
     _notify(name("extended"), "Deal extended by " + to_string(moredays) + " more days", d);
@@ -337,8 +338,9 @@ CONTRACT escrowescrow : public eosio::contract {
     require_auth(d.arbiter);
 
     arbiters _arbiters(_self, _self.value);
-    auto arb = _arbiters.get(d.arbiter.value, "Cannot find the arbiter");
-    _arbiters.modify(arb, _self, [&]( auto& item ) {
+    auto arbitr = _arbiters.find(d.arbiter.value);
+    eosio_assert(arbitr != _arbiters.end(), "Cannot find the arbiter");
+    _arbiters.modify(*arbitr, _self, [&]( auto& item ) {
         item.processed_deals++;
       });
     
@@ -362,8 +364,9 @@ CONTRACT escrowescrow : public eosio::contract {
     require_auth(d.arbiter);
 
     arbiters _arbiters(_self, _self.value);
-    auto arb = _arbiters.get(d.arbiter.value, "Cannot find the arbiter");
-    _arbiters.modify(arb, _self, [&]( auto& item ) {
+    auto arbitr = _arbiters.find(d.arbiter.value);
+    eosio_assert(arbitr != _arbiters.end(), "Cannot find the arbiter");
+    _arbiters.modify(*arbitr, _self, [&]( auto& item ) {
         item.processed_deals++;
       });
     
@@ -375,6 +378,7 @@ CONTRACT escrowescrow : public eosio::contract {
     _clean_expired_deals(deal_id);
   }
 
+  
 
   // erase up to X expired deals and one arbiter
   ACTION wipeexpired(uint16_t count)
@@ -525,7 +529,7 @@ CONTRACT escrowescrow : public eosio::contract {
           item.flags |= DEAL_ARBITRATION_FLAG;
       });
       _notify(name("arbitration"),
-              "Did not receive Goods Received on time. The deal is open for arbitration", d);
+              "Goods Received was not issued on time. The deal is open for arbitration", d);
       require_recipient(d.seller);
       require_recipient(d.buyer);
       require_recipient(d.arbiter);
