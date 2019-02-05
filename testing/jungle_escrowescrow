@@ -236,6 +236,24 @@ jcleos push action escrowescrow arbrefund '["1983549944"]' -p escrowchris1@activ
 jcleos push action escrowescrow arbenforce '["3608340859"]' -p escrowchris1@active
 
 
+## back to normal timers
+
+# extension test
+
+# 3420116506 created: Tue Feb  5 11:51:42 UTC 2019
+# "expires": "2019-02-08T11:51:24"
+# paid
+#      "funded": "2019-02-05T11:53:44",
+#      "expires": "2019-02-10T11:53:44",
+
+# Alice extends
+jcleos push action escrowescrow extend '["3420116506", 10]' -p escrowalice1@active
+# "expires": "2019-02-20T11:53:44",
+jcleos push action escrowescrow extend '["3420116506", 3]' -p escrowalice1@active
+# "expires": "2019-02-23T11:53:44"
+
+# Bob cannot extend, error: Only buyer can extend a deal
+jcleos push action escrowescrow extend '["3420116506", 3]' -p escrowbob111@active
 
 
 
