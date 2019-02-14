@@ -73,6 +73,7 @@ the list of arbiters as soon as all those deals close.
 This development is sponsored by EOS Geneva (https://eosgeneva.io/), BP accounut name: `switzerlanda`.
 
 Copyright 2019 cc32d9@gmail.com
+
 Copyright 2019 EOS Geneva
 
 Licensed under the Apache License, Version 2.0 (the "License");
