@@ -3,7 +3,7 @@ CONTRACT=escrowescrow
 all: $(CONTRACT).wasm $(CONTRACT).abi
 
 %.wasm: %.cpp escrowescrow_constants.hpp
-	eosio-cpp -o $@ $<
+	eosio-cpp -I. -o $@ $<
 
 %.abi: %.cpp
 	eosio-abigen -contract=$(CONTRACT) --output=$@ $<
