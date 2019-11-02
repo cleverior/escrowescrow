@@ -213,7 +213,7 @@ CONTRACT escrowescrow : public eosio::contract {
       uint64_t deal_id = 0;
       for( int i = 0; i < memo.length(); i++ ) {
         char c = memo[i];
-        check('0' <= c && c <= '9', "Invalid character in symbol name. Expected only digits");
+        check('0' <= c && c <= '9', "Invalid character in memo. Expected only digits");
         deal_id *= 10;
         deal_id += (c - '0');
       }
