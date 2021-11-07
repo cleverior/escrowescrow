@@ -1,4 +1,4 @@
-# Universal EOS escrow contract
+# Universal EOS escrow contract (REKBER)
 
 This is an escrow service that anyone in EOS network can use. It is
 accepting deals in any valid tokens in EOS network, and providing easy
